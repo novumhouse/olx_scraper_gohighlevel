@@ -42,10 +42,11 @@ logger = logging.getLogger(__name__)
 class OLXScraper:
     """Scrapes job listings from OLX.pl and sends data to GoHighLevel"""
     
-    def __init__(self, headless=True, gohighlevel_api_key=None):
+    def __init__(self, headless=True, gohighlevel_api_key=None, gohighlevel_location_id=None):
         """Initialize the scraper with browser options and API key"""
         self.headless = headless
         self.gohighlevel_api_key = gohighlevel_api_key
+        self.gohighlevel_location_id = gohighlevel_location_id
         self.driver = None
         self.base_url = "https://www.olx.pl/praca/produkcja/"
         self.results = []
@@ -56,8 +57,8 @@ class OLXScraper:
             "automotive", "przemysł", "wytwórnia", "huta", "manufaktura"
         ]
         
-        # Keywords to identify employment agencies
-        self.agency_keywords = [
+        # Keywords to identify employment agencies (exclusion list)
+        self.exclusion_keywords = [
             "agencja pracy", "agencja zatrudnienia", "agencja pośrednictwa", 
             "rekrutacja", "hr", "human resources", "outsourcing", "leasing pracowniczy"
         ]
@@ -103,29 +104,158 @@ class OLXScraper:
             
             if not driver_found:
                 # Fall back to WebDriverManager
-                try:
-                    # Use WebDriverManager for Linux (version 4.0+)
-                    from webdriver_manager.chrome import ChromeDriverManager
-                    service = Service(ChromeDriverManager().install())
-                    logger.info("Successfully installed ChromeDriver using WebDriverManager 4.0+")
-                except Exception as e:
-                    logger.error(f"Failed to install ChromeDriver: {e}")
-                    raise Exception("Could not install compatible ChromeDriver")
+                service = self._install_chromedriver_with_fallback()
                 
         else:
             # Windows configuration
             chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
-            # Use WebDriverManager for Windows (version 4.0+)
-            try:
-                from webdriver_manager.chrome import ChromeDriverManager
-                service = Service(ChromeDriverManager().install())
-                logger.info("Successfully installed ChromeDriver using WebDriverManager 4.0+")
-            except Exception as e:
-                logger.error(f"Failed to install ChromeDriver: {e}")
-                raise Exception("Could not install compatible ChromeDriver")
+            # Use WebDriverManager for Windows
+            service = self._install_chromedriver_with_fallback()
         
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
         self.driver.implicitly_wait(10)
+        
+    def _install_chromedriver_with_fallback(self):
+        """
+        Install ChromeDriver with comprehensive fallback options for Chrome 138+
+        
+        Returns:
+            Service: The ChromeDriver service
+        """
+        try:
+            # Try the simple approach first
+            from webdriver_manager.chrome import ChromeDriverManager
+            service = Service(ChromeDriverManager().install())
+            logger.info("Successfully installed ChromeDriver using WebDriverManager")
+            return service
+            
+        except Exception as e:
+            logger.warning(f"Primary ChromeDriver installation failed: {e}")
+            
+            # Try specific version fallback for Chrome 138
+            try:
+                # Clear cache and try again
+                import tempfile
+                import shutil
+                cache_dir = os.path.join(tempfile.gettempdir(), '.wdm')
+                if os.path.exists(cache_dir):
+                    shutil.rmtree(cache_dir)
+                    logger.info("Cleared WebDriverManager cache")
+                
+                # Try with cache_valid_range=1 to force fresh download
+                service = Service(ChromeDriverManager(cache_valid_range=1).install())
+                logger.info("Successfully installed ChromeDriver after clearing cache")
+                return service
+                
+            except Exception as e2:
+                logger.warning(f"Cache clearing approach failed: {e2}")
+                
+                # Try with specific Chrome 138 compatible versions
+                compatible_versions = [
+                    "131.0.6778.85",  # Known stable version
+                    "130.0.6723.116", # Another stable version
+                    "129.0.6668.100", # Fallback version
+                    "128.0.6613.137"  # Older stable version
+                ]
+                
+                for version in compatible_versions:
+                    try:
+                        logger.info(f"Trying ChromeDriver version: {version}")
+                        service = Service(ChromeDriverManager(version=version).install())
+                        logger.info(f"Successfully installed ChromeDriver version: {version}")
+                        return service
+                    except Exception as e3:
+                        logger.warning(f"Version {version} failed: {e3}")
+                        continue
+                
+                # Final fallback: try to use any available system chromedriver
+                try:
+                    import subprocess
+                    result = subprocess.run(['chromedriver', '--version'], 
+                                         capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        logger.info(f"Found system ChromeDriver: {result.stdout}")
+                        return Service('chromedriver')
+                except Exception as e4:
+                    logger.warning(f"System ChromeDriver check failed: {e4}")
+                
+                # Final attempt: download directly from Chrome for Testing
+                try:
+                    service = self._download_chrome_for_testing()
+                    if service:
+                        return service
+                except Exception as e5:
+                    logger.warning(f"Chrome for Testing download failed: {e5}")
+                
+                # If all else fails, raise the original error
+                raise Exception(f"Could not install compatible ChromeDriver. Original error: {e}")
+    
+    def _download_chrome_for_testing(self):
+        """
+        Download ChromeDriver directly from Chrome for Testing endpoints
+        
+        Returns:
+            Service: The ChromeDriver service or None if failed
+        """
+        try:
+            import requests
+            import zipfile
+            import tempfile
+            import platform
+            
+            # Determine platform
+            system = platform.system().lower()
+            arch = platform.machine().lower()
+            
+            if system == "windows":
+                platform_name = "win64" if "64" in arch or "amd64" in arch else "win32"
+                driver_name = "chromedriver.exe"
+            elif system == "linux":
+                platform_name = "linux64"
+                driver_name = "chromedriver"
+            elif system == "darwin":
+                platform_name = "mac-x64" if "x86" in arch else "mac-arm64"
+                driver_name = "chromedriver"
+            else:
+                return None
+            
+            # Try to get the latest stable version
+            versions_to_try = ["131.0.6778.85", "130.0.6723.116", "129.0.6668.100"]
+            
+            for version in versions_to_try:
+                try:
+                    url = f"https://storage.googleapis.com/chrome-for-testing-public/{version}/{platform_name}/chromedriver-{platform_name}.zip"
+                    
+                    logger.info(f"Downloading ChromeDriver {version} from Chrome for Testing")
+                    response = requests.get(url, timeout=30)
+                    
+                    if response.status_code == 200:
+                        # Save and extract
+                        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_zip:
+                            temp_zip.write(response.content)
+                            temp_zip_path = temp_zip.name
+                        
+                        extract_dir = tempfile.mkdtemp()
+                        with zipfile.ZipFile(temp_zip_path, 'r') as zip_ref:
+                            zip_ref.extractall(extract_dir)
+                        
+                        # Find the ChromeDriver executable
+                        for root, dirs, files in os.walk(extract_dir):
+                            if driver_name in files:
+                                driver_path = os.path.join(root, driver_name)
+                                os.chmod(driver_path, 0o755)  # Make executable
+                                logger.info(f"Successfully downloaded ChromeDriver {version}")
+                                return Service(driver_path)
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to download ChromeDriver {version}: {e}")
+                    continue
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Chrome for Testing download failed: {e}")
+            return None
         
     def close_driver(self):
         """Close the WebDriver"""
@@ -156,7 +286,7 @@ class OLXScraper:
         description_lower = description.lower()
         
         # Check for agency keywords first (exclusion)
-        for keyword in self.agency_keywords:
+        for keyword in self.exclusion_keywords:
             if keyword in description_lower:
                 return False
                 
@@ -435,30 +565,22 @@ class OLXScraper:
             return False
             
         try:
-            api_url = "https://rest.gohighlevel.com/v1/contacts/"
-            headers = {
-                "Authorization": f"Bearer {self.gohighlevel_api_key}",
-                "Content-Type": "application/json"
-            }
+            # Use the GoHighLevel integration class
+            from gohighlevel_integration import GoHighLevelAPI
             
-            payload = {
-                "name": data["company_name"],
-                "phone": data["phone_number"],
-                "customField": {
-                    "position": data["position"],
-                    "source": data["source"],
-                    "url": data["url"],
-                    "date_collected": data["date_collected"]
-                }
-            }
+            ghl_api = GoHighLevelAPI(
+                self.gohighlevel_api_key, 
+                self.gohighlevel_location_id
+            )
             
-            response = requests.post(api_url, headers=headers, json=payload)
+            # Create the contact
+            result = ghl_api.create_contact(data)
             
-            if response.status_code in (200, 201):
+            if result:
                 logger.info(f"Successfully sent data to GoHighLevel: {data['company_name']}")
                 return True
             else:
-                logger.error(f"Failed to send data to GoHighLevel: {response.status_code} - {response.text}")
+                logger.error(f"Failed to send data to GoHighLevel for: {data['company_name']}")
                 return False
                 
         except Exception as e:
@@ -514,23 +636,189 @@ class OLXScraper:
         finally:
             self.close_driver()
             
+    def run_custom_url(self, search_url, max_pages=10, max_listings=100):
+        """
+        Run the scraper with a custom search URL
+        
+        Args:
+            search_url (str): The custom OLX search URL to scrape
+            max_pages (int): Maximum number of pages to scrape
+            max_listings (int): Maximum number of listings to process
+            
+        Returns:
+            list: The scraped data
+        """
+        results = []
+        
+        try:
+            self.setup_driver()
+            
+            # Get listing URLs from the custom search URL
+            listing_urls = self.get_listing_urls_from_url(search_url, max_pages=max_pages)
+            logger.info(f"Found {len(listing_urls)} total listings from custom URL: {search_url}")
+            
+            # Process each listing
+            count = 0
+            for url in listing_urls:
+                if count >= max_listings:
+                    logger.info(f"Reached maximum number of listings ({max_listings})")
+                    break
+                    
+                data = self.process_listing(url)
+                if data:
+                    results.append(data)
+                    
+                    # Send to GoHighLevel
+                    if self.gohighlevel_api_key:
+                        self.send_to_gohighlevel(data)
+                        
+                    count += 1
+                    
+                # Add a small delay between requests
+                time.sleep(1)
+                
+            logger.info(f"Processed {count} listings from {search_url}, found {len(results)} manufacturing companies")
+            
+            return results
+            
+        finally:
+            self.close_driver()
+            
+    def get_listing_urls_from_url(self, search_url, max_pages=10):
+        """
+        Get URLs of job listings from a specific search URL
+        
+        Args:
+            search_url (str): The search URL to start from
+            max_pages (int): Maximum number of pages to scrape
+            
+        Returns:
+            list: List of job listing URLs
+        """
+        urls = []
+        current_page = 1
+        
+        while current_page <= max_pages:
+            try:
+                if current_page == 1:
+                    page_url = search_url
+                else:
+                    # Add page parameter to the URL
+                    separator = "&" if "?" in search_url else "?"
+                    page_url = f"{search_url}{separator}page={current_page}"
+                    
+                logger.info(f"Visiting page: {page_url}")
+                self.driver.get(page_url)
+                time.sleep(3)  # Wait for page to load
+                
+                # Accept cookies if needed
+                if current_page == 1:
+                    self.accept_cookies()
+                    time.sleep(2)
+                    
+                # Find all job listing links - try multiple selectors
+                listing_elements = []
+                
+                # Try different selectors for job listings
+                selectors = [
+                    "a[data-cy='listing-ad-title']",
+                    "a[data-testid='listing-ad-title']",
+                    "h3 a",
+                    "h4 a",
+                    "h6 a",
+                    ".title a",
+                    "[data-cy='l-card'] a",
+                    ".offer-item a"
+                ]
+                
+                for selector in selectors:
+                    try:
+                        elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                        if elements:
+                            listing_elements = elements
+                            logger.info(f"Found elements using selector: {selector}")
+                            break
+                    except Exception as e:
+                        logger.debug(f"Selector {selector} failed: {e}")
+                        continue
+                
+                # If no elements found with CSS selectors, try XPath
+                if not listing_elements:
+                    xpath_selectors = [
+                        "//a[contains(@href, '/oferta/')]",
+                        "//a[contains(text(), 'Operator') or contains(text(), 'Pracownik') or contains(text(), 'Produkcja')]"
+                    ]
+                    
+                    for xpath in xpath_selectors:
+                        try:
+                            elements = self.driver.find_elements(By.XPATH, xpath)
+                            if elements:
+                                listing_elements = elements
+                                logger.info(f"Found elements using XPath: {xpath}")
+                                break
+                        except Exception as e:
+                            logger.debug(f"XPath {xpath} failed: {e}")
+                            continue
+                
+                page_urls = []
+                for element in listing_elements:
+                    try:
+                        url = element.get_attribute("href")
+                        if url and "olx.pl/oferta" in url and "/praca/" in url:
+                            page_urls.append(url)
+                    except Exception as e:
+                        logger.debug(f"Error getting URL from element: {e}")
+                        continue
+                        
+                urls.extend(page_urls)
+                logger.info(f"Found {len(page_urls)} job listings on page {current_page}")
+                
+                # If no listings found, log page source for debugging
+                if not page_urls and current_page == 1:
+                    logger.warning("No listings found on first page. Checking page content...")
+                    page_source = self.driver.page_source
+                    if any(keyword in page_source.lower() for keyword in self.manufacturing_keywords):
+                        logger.info("Page contains manufacturing keywords")
+                    else:
+                        logger.warning("Page does not contain manufacturing keywords")
+                
+                # Check if there's a next page
+                try:
+                    next_button = self.driver.find_element(By.XPATH, "//a[contains(@data-cy, 'pagination-forward') or contains(@class, 'next')]")
+                    if "disabled" in next_button.get_attribute("class") or not next_button.is_enabled():
+                        logger.info("Reached last page")
+                        break
+                except NoSuchElementException:
+                    logger.info("No more pages or pagination element not found")
+                    break
+                    
+                current_page += 1
+                
+            except Exception as e:
+                logger.error(f"Error getting listing URLs on page {current_page}: {str(e)}")
+                break
+                
+        return urls
+
 def main():
     """Main function to run the scraper"""
     # Get defaults from environment variables
     default_headless = os.getenv("HEADLESS", "true").lower() == "true"
     default_api_key = os.getenv("GOHIGHLEVEL_API_KEY")
+    default_location_id = os.getenv("GOHIGHLEVEL_LOCATION_ID")
     default_max_pages = int(os.getenv("MAX_PAGES", "5"))
     default_max_listings = int(os.getenv("MAX_LISTINGS", "50"))
     
     parser = argparse.ArgumentParser(description="OLX Job Scraper")
     parser.add_argument("--headless", action="store_true", default=default_headless, help="Run in headless mode")
     parser.add_argument("--api-key", default=default_api_key, help="GoHighLevel API key")
+    parser.add_argument("--location-id", default=default_location_id, help="GoHighLevel location ID")
     parser.add_argument("--max-pages", type=int, default=default_max_pages, help="Maximum number of pages to scrape")
     parser.add_argument("--max-listings", type=int, default=default_max_listings, help="Maximum number of listings to process")
     
     args = parser.parse_args()
     
-    scraper = OLXScraper(headless=args.headless, gohighlevel_api_key=args.api_key)
+    scraper = OLXScraper(headless=args.headless, gohighlevel_api_key=args.api_key, gohighlevel_location_id=args.location_id)
     results = scraper.run(max_pages=args.max_pages, max_listings=args.max_listings)
     
     print(f"Found {len(results)} manufacturing companies")

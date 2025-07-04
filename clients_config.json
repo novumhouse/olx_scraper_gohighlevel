@@ -1,24 +1,37 @@
 {
-  "clients": {
-    "client1": {
-      "name": "client1",
-      "gohighlevel_api_key": "your_api_key_here",
-      "search_keywords": ["producent", "produkcja", "fabryka"],
-      "max_pages": 5,
-      "max_listings": 50,
-      "schedule_interval_hours": 5,
-      "output_file": "results_client1.json",
-      "log_file": "client1_scraper.log"
+  "client1": {
+    "name": "JobsEU",
+    "gohighlevel_api_key": "your_api_key_here",
+    "gohighlevel_location_id": "your_location_id_here",
+    "olx_search_urls": [
+      "https://www.olx.pl/praca/q-producent/?search%5Border%5D=created_at:desc",
+      "https://www.olx.pl/praca/q-produkcja/?search%5Border%5D=created_at:desc",
+      "https://www.olx.pl/praca/q-fabryka/?search%5Border%5D=created_at:desc"
+    ],
+    "keywords": {
+      "include": ["producent", "produkcja", "fabryka", "manufacturing", "zakład"],
+      "exclude": ["agencja", "pośrednictwo", "kadry", "hr", "rekrutacja"]
     },
-    "client3": {
-      "name": "Demo Client",
-      "gohighlevel_api_key": "",
-      "search_keywords": ["meble", "huta", "manufaktura"],
-      "max_pages": 2,
-      "max_listings": 20,
-      "schedule_interval_hours": 48,
-      "output_file": "results_client3.json",
-      "log_file": "client3_scraper.log"
-    }
+    "schedule": "0 9 * * 1-5",
+    "enabled": true,
+    "max_pages": 5,
+    "delay_between_requests": 2
+  },
+  "client3": {
+    "name": "Demo Client",
+    "gohighlevel_api_key": "",
+    "gohighlevel_location_id": "",
+    "olx_search_urls": [
+      "https://www.olx.pl/praca/q-meble/?search%5Border%5D=created_at:desc",
+      "https://www.olx.pl/praca/q-manufaktura/?search%5Border%5D=created_at:desc"
+    ],
+    "keywords": {
+      "include": ["meble", "huta", "manufaktura", "furniture", "wood"],
+      "exclude": ["agencja", "pośrednictwo", "kadry"]
+    },
+    "schedule": "0 10 * * *",
+    "enabled": false,
+    "max_pages": 2,
+    "delay_between_requests": 3
   }
 }
