@@ -74,11 +74,56 @@ class OLXScraper:
         chrome_options.add_argument("--disable-web-security")
         chrome_options.add_argument("--allow-running-insecure-content")
         chrome_options.add_argument("--window-size=1920,1080")
-        chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36")
         
-        # Use the system ChromeDriver
-        chrome_options.binary_location = "/usr/bin/chromium-browser"
-        service = Service("/usr/local/bin/chromedriver")
+        # Detect operating system and configure accordingly
+        import platform
+        system = platform.system().lower()
+        
+        if system == "linux":
+            # Linux/Hetzner configuration
+            chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
+            
+            # Try to use system Chrome first, fall back to WebDriverManager
+            chrome_paths = ["/usr/bin/chromium-browser", "/usr/bin/google-chrome", "/usr/bin/chrome"]
+            driver_paths = ["/usr/local/bin/chromedriver", "/usr/bin/chromedriver"]
+            
+            chrome_found = False
+            for chrome_path in chrome_paths:
+                if os.path.exists(chrome_path):
+                    chrome_options.binary_location = chrome_path
+                    chrome_found = True
+                    break
+            
+            driver_found = False
+            for driver_path in driver_paths:
+                if os.path.exists(driver_path):
+                    service = Service(driver_path)
+                    driver_found = True
+                    break
+            
+            if not driver_found:
+                # Fall back to WebDriverManager
+                try:
+                    # Use WebDriverManager for Linux (version 4.0+)
+                    from webdriver_manager.chrome import ChromeDriverManager
+                    service = Service(ChromeDriverManager().install())
+                    logger.info("Successfully installed ChromeDriver using WebDriverManager 4.0+")
+                except Exception as e:
+                    logger.error(f"Failed to install ChromeDriver: {e}")
+                    raise Exception("Could not install compatible ChromeDriver")
+                
+        else:
+            # Windows configuration
+            chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
+            # Use WebDriverManager for Windows (version 4.0+)
+            try:
+                from webdriver_manager.chrome import ChromeDriverManager
+                service = Service(ChromeDriverManager().install())
+                logger.info("Successfully installed ChromeDriver using WebDriverManager 4.0+")
+            except Exception as e:
+                logger.error(f"Failed to install ChromeDriver: {e}")
+                raise Exception("Could not install compatible ChromeDriver")
+        
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
         self.driver.implicitly_wait(10)
         

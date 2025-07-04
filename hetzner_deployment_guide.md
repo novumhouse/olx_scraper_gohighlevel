@@ -1,4 +1,4 @@
-# Complete Hetzner Cloud Deployment Guide for OLX Job Scraper
+# Complete Hetzner Cloud Deployment Guide for Multi-Client OLX Job Scraper
 
 ## Table of Contents
 
@@ -7,27 +7,29 @@
 3. [Prerequisites and Requirements](#prerequisites)
 4. [Account Setup and Server Creation](#account-setup)
 5. [Server Configuration and Setup](#server-setup)
-6. [Application Deployment](#application-deployment)
-7. [Automation and Scheduling](#automation)
-8. [Monitoring and Maintenance](#monitoring)
+6. [Multi-Client Application Deployment](#application-deployment)
+7. [Multi-Client Automation and Scheduling](#automation)
+8. [Multi-Client Monitoring and Maintenance](#monitoring)
 9. [Security Configuration](#security)
 10. [Cost Analysis and Optimization](#cost-analysis)
 11. [Troubleshooting Guide](#troubleshooting)
-12. [Advanced Configuration](#advanced-config)
+12. [Advanced Multi-Client Configuration](#advanced-config)
 
 ## Introduction and Overview {#introduction}
 
-Deploying your OLX job scraper on Hetzner Cloud provides a robust, cost-effective solution for automated lead generation. This comprehensive guide will walk you through every step of the deployment process, from initial account creation to production-ready automation.
+Deploying your multi-client OLX job scraper on Hetzner Cloud provides a robust, cost-effective solution for automated lead generation across multiple clients. This comprehensive guide will walk you through every step of the deployment process, from initial account creation to production-ready multi-client automation.
 
-Hetzner Cloud offers exceptional value for hosting automation scripts like your OLX scraper. With servers starting at just €3.29 per month, you can run your scraper 24/7 with excellent reliability and performance. The European data centers are particularly well-suited for scraping Polish websites like OLX.pl, providing low latency and optimal performance.
+The multi-client architecture allows you to manage multiple independent clients with separate configurations, API keys, schedules, and data isolation. Each client can have custom search keywords, different scraping frequencies, and isolated result storage, making it perfect for agencies or businesses serving multiple customers.
 
-The deployment process involves several key phases. First, you'll create and configure your Hetzner Cloud account and provision a virtual server. Next, you'll install the necessary software dependencies including Python, Chrome, and the required libraries. Then you'll deploy your OLX scraper application, configure it with your GoHighLevel API credentials, and set up automated scheduling. Finally, you'll implement monitoring, security measures, and maintenance procedures to ensure reliable long-term operation.
+Hetzner Cloud offers exceptional value for hosting automation scripts like your multi-client OLX scraper. With servers starting at just €3.29 per month, you can run multiple client scrapers 24/7 with excellent reliability and performance. The European data centers are particularly well-suited for scraping Polish websites like OLX.pl, providing low latency and optimal performance.
 
-This guide assumes you have basic familiarity with Linux command line operations and SSH connections. However, detailed commands and explanations are provided for each step, making it accessible even for users with limited server administration experience.
+The multi-client deployment process involves several key phases. First, you'll create and configure your Hetzner Cloud account and provision a virtual server with appropriate resources for multiple clients. Next, you'll install the necessary software dependencies including Python, Chrome, and the required libraries. Then you'll deploy your multi-client OLX scraper application, configure it with multiple client configurations and GoHighLevel API credentials, and set up automated scheduling for each client. Finally, you'll implement monitoring, security measures, and maintenance procedures to ensure reliable long-term operation across all clients.
+
+This guide assumes you have basic familiarity with Linux command line operations and SSH connections. However, detailed commands and explanations are provided for each step, making it accessible even for users with limited server administration experience. The multi-client setup adds additional complexity in configuration management, but provides significant benefits in scalability and client isolation.
 
 ## Why Choose Hetzner Cloud {#why-hetzner}
 
-Hetzner Cloud stands out as an ideal platform for hosting your OLX scraper for several compelling reasons. The company has built a reputation for providing high-quality infrastructure at competitive prices, making it particularly attractive for small to medium-scale automation projects.
+Hetzner Cloud stands out as an ideal platform for hosting your multi-client OLX scraper for several compelling reasons. The company has built a reputation for providing high-quality infrastructure at competitive prices, making it particularly attractive for small to medium-scale automation projects.
 
 Cost effectiveness represents one of Hetzner's primary advantages. Their CX11 server, priced at €3.29 per month, provides 1 vCPU, 4GB RAM, and 40GB SSD storage with 20TB of included traffic. This configuration is perfectly suited for running web scraping applications that don't require intensive computational resources but benefit from reliable uptime and consistent performance.
 
@@ -41,20 +43,25 @@ Network performance is another area where Hetzner excels. All servers include ge
 
 The user interface and API provided by Hetzner Cloud simplify server management tasks. The web console allows you to monitor resource usage, manage backups, and perform administrative tasks without requiring advanced technical knowledge. For users who prefer programmatic control, the comprehensive API enables automation of server provisioning and management tasks.
 
-
-
-
 ## Prerequisites and Requirements {#prerequisites}
 
-Before beginning the deployment process, ensure you have all necessary components and information readily available. Proper preparation will streamline the setup process and minimize potential complications during deployment.
+Before beginning the multi-client deployment process, ensure you have all necessary components and information readily available for each client you plan to manage. Proper preparation will streamline the setup process and minimize potential complications during deployment.
 
 ### Technical Requirements
 
 Your local computer should have an SSH client installed for connecting to the remote server. Most modern operating systems include SSH clients by default. Windows users running older versions may need to install PuTTY or enable the Windows Subsystem for Linux to access SSH functionality.
 
-You'll need the updated OLX scraper application files, which should include the main scraper script, GoHighLevel integration module, scheduler, configuration files, and documentation. Ensure you have the latest version that includes the Chrome driver compatibility fixes and improved error handling.
+You'll need the updated multi-client OLX scraper application files, which should include the multi-client manager script, multi-client scheduler, core scraper engine, GoHighLevel integration module, client configuration template, and comprehensive documentation. Ensure you have the latest version that includes the Chrome driver compatibility fixes, improved error handling, and multi-client architecture.
 
-A valid GoHighLevel API key is essential for the integration functionality. This key should have appropriate permissions to create and update contacts in your GoHighLevel account. If you don't have this key readily available, obtain it from your GoHighLevel account settings before proceeding with the deployment.
+**Multiple GoHighLevel API keys** are essential for the multi-client integration functionality. Each client should have their own separate GoHighLevel account and API key with appropriate permissions to create and update contacts. Collect all client API keys before proceeding with the deployment to ensure seamless configuration setup.
+
+### Multi-Client Planning Requirements
+
+**Client Configuration Planning** involves documenting each client's specific requirements including business name, target keywords, scraping frequency preferences, and contact volume expectations. Create a spreadsheet or document listing all clients with their respective configurations before starting the deployment.
+
+**Resource Requirements Assessment** depends on the number of clients you plan to manage. A CX11 server can handle 1-2 clients comfortably, while 3-5 clients may require a CX21 server for optimal performance. Consider the combined resource usage when planning your server specifications.
+
+**Schedule Coordination** requires planning scraping schedules to avoid resource conflicts. Stagger client execution times to prevent multiple Chrome instances from running simultaneously, which could overwhelm server resources and impact performance.
 
 ### Account and Payment Information
 
@@ -62,21 +69,25 @@ A valid email address is required for creating your Hetzner Cloud account. This 
 
 Payment method setup requires either a credit card or PayPal account. Hetzner Cloud charges monthly for server usage, and having a valid payment method ensures uninterrupted service. The billing is transparent with no hidden fees, and you can monitor usage and costs through the web console.
 
-Consider your budget requirements for ongoing operation. While the basic CX11 server costs only €3.29 per month, you may want to budget for additional services like automated backups (€1.31 per month) or potential server upgrades if your scraping needs grow over time.
+Consider your budget requirements for ongoing operation. Multi-client deployments may require higher-tier servers (CX21 at €5.83/month or CX31 at €10.52/month) depending on client volume. Budget for additional services like automated backups (€1.31 per month) or potential server upgrades as your client base grows.
 
 ### Security Considerations
 
 SSH key pair generation is highly recommended for secure server access. While password authentication is possible, SSH keys provide superior security and convenience. If you don't already have SSH keys, generate them before creating your server to streamline the initial setup process.
 
-Consider your network security requirements. If you plan to access the server from multiple locations or share access with team members, plan your access control strategy accordingly. Hetzner Cloud supports various authentication methods and firewall configurations to meet different security needs.
+**Multi-client security planning** involves protecting sensitive information for multiple clients. Each client's API keys and configuration data must be secured appropriately. Consider access control requirements if multiple team members will manage different clients.
 
-### Planning Your Deployment
+**Client data isolation** ensures that each client's data remains separate and secure. The multi-client architecture provides this isolation through separate configuration files, result files, and log files for each client.
 
-Determine your scraping schedule and frequency requirements. The default configuration runs the scraper every 24 hours, but you may want to adjust this based on your lead generation needs and OLX.pl's acceptable usage patterns. More frequent scraping may yield more leads but could also increase the risk of rate limiting.
+### Planning Your Multi-Client Deployment
 
-Consider your data retention and backup requirements. The scraper generates log files and result data that accumulate over time. Plan for log rotation and data archival to prevent disk space issues and maintain system performance.
+**Client scheduling strategy** should optimize resource usage while meeting each client's requirements. Consider time zone differences, target market activity patterns, and server resource availability when planning execution schedules.
 
-Think about monitoring and alerting needs. While the deployment includes basic monitoring scripts, you may want to implement additional monitoring for critical business processes or integrate with external monitoring services for comprehensive oversight.
+**Scalability planning** involves considering future growth in client numbers and adjusting your infrastructure accordingly. Plan for easy addition of new clients and potential server upgrades as your business grows.
+
+**Data retention and backup requirements** multiply with multiple clients. Plan for log rotation, data archival, and backup procedures that handle multiple client datasets efficiently while maintaining data isolation.
+
+**Monitoring and alerting needs** become more complex with multiple clients. Consider implementing client-specific monitoring and alerting to ensure issues with one client don't affect others and to provide appropriate visibility into each client's performance.
 
 ## Account Setup and Server Creation {#account-setup}
 
@@ -100,7 +111,7 @@ Review the billing settings and notification preferences. You can configure aler
 
 ### Project Creation and Organization
 
-Hetzner Cloud uses projects to organize resources and manage access control. Create a dedicated project for your OLX scraper deployment to maintain clear separation from other potential projects. Name the project descriptively, such as "OLX-Lead-Generation" or "Job-Scraper-Production."
+Hetzner Cloud uses projects to organize resources and manage access control. Create a dedicated project for your multi-client OLX scraper deployment to maintain clear separation from other potential projects. Name the project descriptively, such as "Multi-Client-OLX-Scraper" or "Job-Scraper-Production."
 
 Project settings allow you to configure default options for new resources, including preferred data center locations and default SSH keys. Setting these preferences streamlines the server creation process and ensures consistency across your infrastructure.
 
@@ -146,10 +157,9 @@ Record the server's public IP address and any provided access credentials in a s
 
 Test initial connectivity by establishing an SSH connection to your new server. This verification step ensures network connectivity and confirms that your SSH key configuration is working correctly before proceeding with application deployment.
 
-
 ## Server Configuration and Setup {#server-setup}
 
-Once your Hetzner Cloud server is provisioned and accessible, the next phase involves configuring the operating system environment and installing the necessary software components. This process establishes the foundation for your OLX scraper deployment and ensures optimal performance and security.
+Once your Hetzner Cloud server is provisioned and accessible, the next phase involves configuring the operating system environment and installing the necessary software components. This process establishes the foundation for your multi-client OLX scraper deployment and ensures optimal performance and security.
 
 ### Initial System Updates and Security
 
@@ -163,7 +173,7 @@ Consider configuring a swap file if your server has limited RAM or if you antici
 
 ### Python Environment Configuration
 
-Python 3.11 or later provides the recommended runtime environment for your OLX scraper application. Ubuntu 22.04 includes Python 3.10 by default, which is compatible with the scraper requirements. Install the python3-pip package manager and python3-venv virtual environment tools to support proper dependency management and isolation.
+Python 3.11 or later provides the recommended runtime environment for your multi-client OLX scraper application. Ubuntu 22.04 includes Python 3.10 by default, which is compatible with the scraper requirements. Install the python3-pip package manager and python3-venv virtual environment tools to support proper dependency management and isolation.
 
 Virtual environment creation isolates your scraper's Python dependencies from system packages, preventing conflicts and ensuring reproducible deployments. Create a dedicated virtual environment in the application directory and activate it before installing any Python packages.
 
@@ -211,9 +221,9 @@ DNS configuration affects the reliability and performance of web requests. Consi
 
 Network monitoring tools can provide insights into bandwidth usage, connection patterns, and potential network issues. Install and configure tools like netstat, ss, or more advanced monitoring solutions to track network performance and troubleshoot connectivity problems.
 
-## Application Deployment {#application-deployment}
+## Multi-Client Application Deployment {#application-deployment}
 
-Deploying your OLX scraper application involves transferring the application files to your server, configuring the runtime environment, and establishing the necessary integrations with external services. This process transforms your configured server into a fully functional lead generation system.
+Deploying your multi-client OLX scraper application involves transferring the application files to your server, configuring the runtime environment, and establishing the necessary integrations with external services. This process transforms your configured server into a fully functional multi-client lead generation system.
 
 ### File Transfer and Organization
 
@@ -237,41 +247,60 @@ Dependency verification involves testing that all installed packages function co
 
 ### Configuration File Setup
 
-Environment variable configuration provides a secure and flexible method for managing application settings. Create a .env file containing your GoHighLevel API key, scraping parameters, and other configuration options. This approach separates sensitive information from application code and simplifies configuration management.
+**Multi-client configuration management** replaces traditional environment variables with a structured JSON configuration file. Create a `clients_config.json` file containing all client configurations with their respective GoHighLevel API keys, scraping parameters, and other client-specific options. This approach provides clear separation between clients while maintaining centralized management.
 
-Configuration validation ensures all required settings are present and correctly formatted before attempting to run the scraper. Implement validation checks that verify API key format, numeric parameters are within acceptable ranges, and file paths are accessible.
+**Client configuration validation** ensures all required settings are present and correctly formatted for each client before attempting to run the scraper. Implement validation checks that verify API key formats, numeric parameters are within acceptable ranges, file paths are accessible, and client IDs are unique.
 
-Default configuration values should be appropriate for production use while allowing customization for specific requirements. The provided configuration template includes conservative settings that balance performance with respectful website usage patterns.
+**Configuration template structure** should follow the established format for consistent client management:
 
-Configuration backup procedures protect against accidental loss of settings and simplify disaster recovery. Store configuration files in a secure location separate from the application directory and implement regular backup procedures.
+```json
+{
+  "clients": {
+    "client_id": {
+      "name": "Client Display Name",
+      "gohighlevel_api_key": "client_api_key_here",
+      "search_keywords": ["keyword1", "keyword2", "keyword3"],
+      "max_pages": 5,
+      "max_listings": 50,
+      "schedule_interval_hours": 24,
+      "output_file": "results_client_id.json",
+      "log_file": "client_id_scraper.log"
+    }
+  }
+}
+```
 
-### Database and Storage Configuration
+**Configuration security measures** protect sensitive client information through appropriate file permissions and access controls. Set the configuration file to be readable only by the application user and ensure backup procedures maintain the same security level.
 
-While the OLX scraper primarily uses file-based storage for results and logs, proper storage configuration ensures reliable data persistence and efficient access patterns. Configure log rotation to prevent disk space exhaustion while maintaining sufficient historical data for troubleshooting and analysis.
+**Configuration backup procedures** protect against accidental loss of client settings and simplify disaster recovery. Store configuration files in a secure location separate from the application directory and implement regular backup procedures that maintain client data separation.
 
-Result file management involves organizing scraped data in a format that supports easy access and integration with downstream systems. The JSON format provides structured data storage that's compatible with most data processing tools and APIs.
+### Multi-Client Database and Storage Configuration
 
-Backup storage configuration protects against data loss and supports disaster recovery procedures. Consider implementing automated backups of result files and configuration data to external storage services or secondary servers.
+**Client-specific storage organization** ensures each client's data remains isolated and easily manageable. Create separate result files, log files, and temporary directories for each client to prevent data mixing and support independent client management.
 
-Storage monitoring helps prevent disk space issues that could interrupt scraper operation. Implement monitoring scripts that track disk usage and alert when storage capacity approaches predefined thresholds.
+**Multi-client log rotation** configuration prevents disk space exhaustion while maintaining sufficient historical data for troubleshooting and analysis across all clients. Configure rotation policies that account for varying activity levels between clients.
 
-### Integration Testing and Validation
+**Consolidated backup strategies** protect against data loss while maintaining client separation. Implement automated backup procedures that handle multiple client datasets efficiently while preserving data isolation and supporting individual client restore operations.
 
-Initial testing should verify that all application components function correctly in the server environment. Run the scraper in test mode with limited scope to confirm browser automation, web scraping, and data processing capabilities work as expected.
+**Storage monitoring for multiple clients** helps prevent disk space issues that could interrupt scraper operation for any client. Implement monitoring scripts that track disk usage patterns across all clients and alert when storage capacity approaches predefined thresholds.
 
-API integration testing validates connectivity and authentication with GoHighLevel services. Test contact creation and update operations using sample data to ensure proper API configuration and permissions.
+### Multi-Client Integration Testing and Validation
 
-Error handling validation involves testing the application's response to various failure scenarios, including network timeouts, website changes, and API errors. Verify that error conditions are logged appropriately and don't cause application crashes.
+**Individual client testing** should verify that each client's configuration functions correctly in the server environment. Run each client's scraper in test mode with limited scope to confirm browser automation, web scraping, and data processing capabilities work as expected for their specific configuration.
 
-Performance testing establishes baseline metrics for scraping speed, resource usage, and system load. These metrics provide reference points for monitoring production performance and identifying optimization opportunities.
+**Cross-client isolation testing** validates that clients don't interfere with each other during operation. Test concurrent execution scenarios and verify that client-specific data remains separate and secure.
+
+**Multi-client API integration testing** validates connectivity and authentication with GoHighLevel services for each client independently. Test contact creation and update operations using sample data for each client to ensure proper API configuration and permissions across all accounts.
+
+**Scheduler coordination testing** verifies that the multi-client scheduler properly manages execution timing and resource allocation across all configured clients. Test various scheduling scenarios including overlapping execution windows and resource contention situations.
 
 ### Production Deployment Preparation
 
-Service registration involves configuring systemd to manage your scraper as a system service. This configuration enables automatic startup, restart on failure, and integration with system monitoring tools.
+**Multi-client service registration** involves configuring systemd to manage your multi-client scheduler as a system service. This configuration enables automatic startup, restart on failure, and integration with system monitoring tools while managing all clients from a single service.
 
-Monitoring integration establishes the foundation for ongoing operational oversight. Configure log aggregation, performance monitoring, and alerting systems to provide visibility into scraper operation and early warning of potential issues.
+**Comprehensive monitoring integration** establishes the foundation for ongoing operational oversight across all clients. Configure log aggregation, performance monitoring, and alerting systems that provide visibility into each client's operation while maintaining overall system oversight.
 
-Documentation updates should reflect any server-specific configuration changes or customizations made during deployment. Maintain accurate documentation to support future maintenance and troubleshooting activities.
+**Client-specific documentation** should reflect any server-specific configuration changes or customizations made during deployment for each client. Maintain accurate documentation that supports future maintenance and troubleshooting activities while preserving client confidentiality.
 
-Deployment validation involves comprehensive testing of all functionality in the production environment. Verify that scheduled execution works correctly, results are properly stored and transmitted, and monitoring systems provide appropriate visibility into system operation.
+**Multi-client deployment validation** involves comprehensive testing of all functionality in the production environment for every configured client. Verify that scheduled execution works correctly for each client, results are properly stored and transmitted to the appropriate GoHighLevel accounts, and monitoring systems provide appropriate visibility into each client's operation.
 
