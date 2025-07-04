@@ -55,7 +55,11 @@ class MultiClientScheduler:
             
         client_config = self.manager.clients[client_id]
         client_name = client_config.get("name", client_id)
-        interval_hours = client_config.get("schedule_interval_hours", 24)
+        
+        # Check if client is enabled
+        if not client_config.get("enabled", True):
+            self.logger.info(f"Client {client_name} is disabled, skipping scheduling")
+            return True
         
         # Define the job function
         def job():
@@ -69,27 +73,144 @@ class MultiClientScheduler:
             except Exception as e:
                 self.logger.error(f"Error in scheduled job for client {client_name}: {str(e)}")
         
-        # Schedule the job
-        scheduled_job = schedule.every(interval_hours).hours.do(job)
-        self.scheduled_jobs[client_id] = scheduled_job
+        # Schedule the job using new cron format or legacy hour format
+        scheduled_job = None
         
-        self.logger.info(f"Scheduled client {client_name} to run every {interval_hours} hours")
-        return True
+        # Priority 1: New cron format (schedule field)
+        if "schedule" in client_config and client_config["schedule"]:
+            try:
+                cron_schedule = client_config["schedule"]
+                scheduled_job = self._schedule_with_cron(cron_schedule, job)
+                self.logger.info(f"Scheduled client {client_name} with cron: {cron_schedule}")
+            except Exception as e:
+                self.logger.warning(f"Failed to schedule client {client_name} with cron '{client_config['schedule']}': {e}")
+                scheduled_job = None
+        
+        # Priority 2: Legacy hour interval format (schedule_interval_hours field)
+        if not scheduled_job and "schedule_interval_hours" in client_config:
+            try:
+                interval_hours = client_config["schedule_interval_hours"]
+                scheduled_job = schedule.every(interval_hours).hours.do(job)
+                self.logger.info(f"Scheduled client {client_name} to run every {interval_hours} hours (legacy format)")
+            except Exception as e:
+                self.logger.warning(f"Failed to schedule client {client_name} with hour interval: {e}")
+                scheduled_job = None
+        
+        # Priority 3: Default fallback
+        if not scheduled_job:
+            default_hours = 24
+            scheduled_job = schedule.every(default_hours).hours.do(job)
+            self.logger.info(f"Scheduled client {client_name} with default interval: {default_hours} hours")
+        
+        if scheduled_job:
+            self.scheduled_jobs[client_id] = scheduled_job
+            return True
+        else:
+            self.logger.error(f"Failed to schedule client {client_name}")
+            return False
+    
+    def _schedule_with_cron(self, cron_expression, job_func):
+        """
+        Schedule a job using cron-like expression
+        
+        Args:
+            cron_expression (str): Cron expression (e.g., "0 9 * * 1-5")
+            job_func: Function to execute
+            
+        Returns:
+            Scheduled job object
+            
+        Note: This is a simplified cron parser for common cases.
+        Full cron expressions: minute hour day_of_month month day_of_week
+        """
+        try:
+            parts = cron_expression.strip().split()
+            if len(parts) != 5:
+                raise ValueError(f"Invalid cron format. Expected 5 parts, got {len(parts)}")
+            
+            minute, hour, day_of_month, month, day_of_week = parts
+            
+            # Handle common patterns
+            
+            # Daily at specific time: "0 9 * * *" (9 AM daily)
+            if day_of_week == "*" and day_of_month == "*" and month == "*":
+                if minute == "0" and hour.isdigit():
+                    time_str = f"{hour:0>2}:00"
+                    return schedule.every().day.at(time_str).do(job_func)
+                elif minute.isdigit() and hour.isdigit():
+                    time_str = f"{hour:0>2}:{minute:0>2}"
+                    return schedule.every().day.at(time_str).do(job_func)
+            
+            # Weekday scheduling: "0 9 * * 1-5" (9 AM Monday-Friday)
+            elif day_of_week == "1-5" and day_of_month == "*" and month == "*":
+                if minute == "0" and hour.isdigit():
+                    time_str = f"{hour:0>2}:00"
+                    # Schedule for each weekday
+                    jobs = []
+                    jobs.append(schedule.every().monday.at(time_str).do(job_func))
+                    jobs.append(schedule.every().tuesday.at(time_str).do(job_func))
+                    jobs.append(schedule.every().wednesday.at(time_str).do(job_func))
+                    jobs.append(schedule.every().thursday.at(time_str).do(job_func))
+                    jobs.append(schedule.every().friday.at(time_str).do(job_func))
+                    # Return the first job (they're all linked)
+                    return jobs[0]
+                    
+            # Specific day of week: "0 9 * * 1" (9 AM every Monday)
+            elif day_of_week.isdigit() and day_of_month == "*" and month == "*":
+                day_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+                day_index = int(day_of_week)
+                if 0 <= day_index <= 6:
+                    day_name = day_names[day_index]
+                    if minute == "0" and hour.isdigit():
+                        time_str = f"{hour:0>2}:00"
+                        return getattr(schedule.every(), day_name).at(time_str).do(job_func)
+            
+            # Hourly: "0 * * * *" (every hour)
+            elif minute == "0" and hour == "*":
+                return schedule.every().hour.do(job_func)
+            
+            # Every X hours: "0 */6 * * *" (every 6 hours)
+            elif minute == "0" and hour.startswith("*/"):
+                interval = int(hour[2:])
+                return schedule.every(interval).hours.do(job_func)
+            
+            # Every X minutes: "*/30 * * * *" (every 30 minutes)
+            elif minute.startswith("*/") and hour == "*":
+                interval = int(minute[2:])
+                return schedule.every(interval).minutes.do(job_func)
+            
+            # Fallback: treat as daily if we can't parse
+            else:
+                self.logger.warning(f"Complex cron expression '{cron_expression}' not fully supported, falling back to daily schedule")
+                if hour.isdigit():
+                    time_str = f"{hour:0>2}:00"
+                    return schedule.every().day.at(time_str).do(job_func)
+                else:
+                    return schedule.every().day.do(job_func)
+                    
+        except Exception as e:
+            raise ValueError(f"Failed to parse cron expression '{cron_expression}': {e}")
         
     def schedule_all_clients(self, headless=True):
         """
-        Schedule all clients for regular scraping
+        Schedule all enabled clients for regular scraping
         
         Args:
             headless (bool): Whether to run in headless mode
         """
         scheduled_count = 0
+        skipped_count = 0
         
-        for client_id in self.manager.clients:
+        for client_id, client_config in self.manager.clients.items():
+            if not client_config.get("enabled", True):
+                skipped_count += 1
+                self.logger.info(f"Skipping disabled client: {client_id}")
+                continue
+                
             if self.schedule_client(client_id, headless):
                 scheduled_count += 1
                 
-        self.logger.info(f"Scheduled {scheduled_count} clients for regular scraping")
+        self.logger.info(f"Scheduled {scheduled_count} clients, skipped {skipped_count} disabled clients")
         return scheduled_count
         
     def run_client_now(self, client_id, headless=True):
@@ -104,7 +225,12 @@ class MultiClientScheduler:
             self.logger.error(f"Client {client_id} not found in configuration")
             return False
             
-        client_name = self.manager.clients[client_id].get("name", client_id)
+        client_config = self.manager.clients[client_id]
+        client_name = client_config.get("name", client_id)
+        
+        # Check if client is enabled
+        if not client_config.get("enabled", True):
+            self.logger.warning(f"Client {client_name} is disabled but running anyway (manual override)")
         
         def run_async():
             self.logger.info(f"Running immediate scraper for client: {client_name}")
@@ -126,13 +252,13 @@ class MultiClientScheduler:
         
     def run_all_clients_now(self, headless=True):
         """
-        Run scraper for all clients immediately
+        Run scraper for all enabled clients immediately
         
         Args:
             headless (bool): Whether to run in headless mode
         """
         def run_async():
-            self.logger.info("Running immediate scraper for all clients")
+            self.logger.info("Running immediate scraper for all enabled clients")
             try:
                 results = self.manager.run_all_clients(headless)
                 self.logger.info(f"Immediate scraper for all clients completed: {results}")
@@ -169,20 +295,59 @@ class MultiClientScheduler:
         """Get the current schedule status"""
         status = {
             "total_clients": len(self.manager.clients),
+            "enabled_clients": 0,
+            "disabled_clients": 0,
             "scheduled_clients": len(self.scheduled_jobs),
+            "clients": [],
             "next_runs": []
         }
         
-        for client_id, job in self.scheduled_jobs.items():
-            client_name = self.manager.clients[client_id].get("name", client_id)
-            next_run = job.next_run
+        for client_id, client_config in self.manager.clients.items():
+            client_name = client_config.get("name", client_id)
+            enabled = client_config.get("enabled", True)
             
-            if next_run:
-                status["next_runs"].append({
-                    "client_id": client_id,
-                    "client_name": client_name,
-                    "next_run": next_run.strftime("%Y-%m-%d %H:%M:%S")
-                })
+            if enabled:
+                status["enabled_clients"] += 1
+            else:
+                status["disabled_clients"] += 1
+            
+            # Get scheduling information
+            schedule_info = "Not scheduled"
+            schedule_type = "None"
+            
+            if client_id in self.scheduled_jobs:
+                job = self.scheduled_jobs[client_id]
+                next_run = job.next_run
+                
+                # Determine schedule type and info
+                if "schedule" in client_config and client_config["schedule"]:
+                    schedule_type = "Cron"
+                    schedule_info = f"Cron: {client_config['schedule']}"
+                elif "schedule_interval_hours" in client_config:
+                    hours = client_config["schedule_interval_hours"]
+                    schedule_type = "Interval"
+                    schedule_info = f"Every {hours} hours"
+                else:
+                    schedule_type = "Default"
+                    schedule_info = "Every 24 hours (default)"
+                
+                if next_run:
+                    status["next_runs"].append({
+                        "client_id": client_id,
+                        "client_name": client_name,
+                        "next_run": next_run.strftime("%Y-%m-%d %H:%M:%S"),
+                        "schedule_type": schedule_type,
+                        "schedule_info": schedule_info
+                    })
+            
+            status["clients"].append({
+                "client_id": client_id,
+                "client_name": client_name,
+                "enabled": enabled,
+                "scheduled": client_id in self.scheduled_jobs,
+                "schedule_type": schedule_type,
+                "schedule_info": schedule_info
+            })
         
         # Sort by next run time
         status["next_runs"].sort(key=lambda x: x["next_run"])
@@ -193,20 +358,36 @@ class MultiClientScheduler:
         """Print the current schedule status"""
         status = self.get_schedule_status()
         
-        print(f"\n{'='*60}")
-        print("SCHEDULE STATUS")
-        print(f"{'='*60}")
+        print(f"\n{'='*80}")
+        print("MULTI-CLIENT SCHEDULER STATUS")
+        print(f"{'='*80}")
         print(f"Total clients: {status['total_clients']}")
+        print(f"Enabled clients: {status['enabled_clients']}")
+        print(f"Disabled clients: {status['disabled_clients']}")
         print(f"Scheduled clients: {status['scheduled_clients']}")
         print()
         
+        # Show client details
+        print("CLIENT DETAILS:")
+        print("-" * 80)
+        for client in status["clients"]:
+            status_icon = "✅" if client["enabled"] else "❌"
+            scheduled_icon = "⏰" if client["scheduled"] else "⏸️"
+            
+            print(f"{status_icon} {scheduled_icon} {client['client_name']} ({client['client_id']})")
+            print(f"    Schedule: {client['schedule_info']}")
+            print()
+        
+        # Show next runs
         if status["next_runs"]:
-            print("Next scheduled runs:")
-            print("-" * 40)
+            print("NEXT SCHEDULED RUNS:")
+            print("-" * 80)
             for run_info in status["next_runs"]:
-                print(f"{run_info['client_name']} ({run_info['client_id']}): {run_info['next_run']}")
+                print(f"📅 {run_info['next_run']} - {run_info['client_name']} ({run_info['schedule_type']})")
         else:
             print("No clients scheduled")
+            
+        print(f"{'='*80}")
             
     def run_scheduler(self, headless=True, run_immediately=False):
         """

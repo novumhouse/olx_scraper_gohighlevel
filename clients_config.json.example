@@ -11,9 +11,13 @@
       "exclude": ["agencja", "pośrednictwo", "exclude_terms"]
     },
     "schedule": "0 9 * * 1-5",
+    "schedule_interval_hours": 24,
     "enabled": true,
     "max_pages": 5,
-    "delay_between_requests": 2
+    "max_listings": 50,
+    "delay_between_requests": 2,
+    "output_file": "results_client1.json",
+    "log_file": "client1_scraper.log"
   },
   "client2": {
     "name": "Demo Client",
@@ -27,8 +31,12 @@
       "exclude": ["agencja", "pośrednictwo"]
     },
     "schedule": "0 10 * * *",
+    "schedule_interval_hours": 48,
     "enabled": false,
     "max_pages": 2,
-    "delay_between_requests": 3
+    "max_listings": 20,
+    "delay_between_requests": 3,
+    "output_file": "results_client2.json",
+    "log_file": "client2_scraper.log"
   }
 } 
