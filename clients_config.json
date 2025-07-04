@@ -1,0 +1,34 @@
+{
+  "clients": {
+    "client1": {
+      "name": "Manufacturing Solutions Ltd",
+      "gohighlevel_api_key": "your_api_key_here",
+      "search_keywords": ["producent", "produkcja", "fabryka"],
+      "max_pages": 5,
+      "max_listings": 50,
+      "schedule_interval_hours": 24,
+      "output_file": "results_client1.json",
+      "log_file": "client1_scraper.log"
+    },
+    "client2": {
+      "name": "Industrial Partners Inc",
+      "gohighlevel_api_key": "another_api_key_here",
+      "search_keywords": ["automotive", "przemysł", "wytwórnia"],
+      "max_pages": 3,
+      "max_listings": 30,
+      "schedule_interval_hours": 12,
+      "output_file": "results_client2.json",
+      "log_file": "client2_scraper.log"
+    },
+    "client3": {
+      "name": "Demo Client",
+      "gohighlevel_api_key": "",
+      "search_keywords": ["meble", "huta", "manufaktura"],
+      "max_pages": 2,
+      "max_listings": 20,
+      "schedule_interval_hours": 48,
+      "output_file": "results_client3.json",
+      "log_file": "client3_scraper.log"
+    }
+  }
+}
