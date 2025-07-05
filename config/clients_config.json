@@ -1,0 +1,45 @@
+{
+  "jobseu_primary": {
+    "name": "JobsEU Primary Client",
+    "gohighlevel_api_key": "YOUR_JOBSEU_API_KEY_HERE",
+    "gohighlevel_location_id": "YOUR_JOBSEU_LOCATION_ID_HERE",
+    "olx_search_urls": [
+      "https://www.olx.pl/praca/q-developer/",
+      "https://www.olx.pl/praca/q-programista/",
+      "https://www.olx.pl/praca/informatyka/"
+    ],
+    "keywords": {
+      "include": ["developer", "programista", "python", "java", "react", "node"],
+      "exclude": ["senior", "lead", "manager"]
+    },
+    "max_pages": 3,
+    "delay_between_requests": 2,
+    "schedule": "0 */3 * * *",
+    "schedule_interval_hours": 3,
+    "output_file": "logs/jobseu_primary_listings.json",
+    "log_file": "logs/jobseu_primary.log",
+    "max_listings": 50,
+    "enabled": true
+  },
+  "jobseu_secondary": {
+    "name": "JobsEU Secondary Client", 
+    "gohighlevel_api_key": "YOUR_JOBSEU_SECONDARY_API_KEY_HERE",
+    "gohighlevel_location_id": "YOUR_JOBSEU_SECONDARY_LOCATION_ID_HERE",
+    "olx_search_urls": [
+      "https://www.olx.pl/praca/q-marketing/",
+      "https://www.olx.pl/praca/q-sprzedaz/"
+    ],
+    "keywords": {
+      "include": ["marketing", "sprzedaż", "sales", "social media"],
+      "exclude": ["senior", "kierownik", "dyrektor"]
+    },
+    "max_pages": 2,
+    "delay_between_requests": 3,
+    "schedule": "0 */3 * * *",
+    "schedule_interval_hours": 3,
+    "output_file": "logs/jobseu_secondary_listings.json", 
+    "log_file": "logs/jobseu_secondary.log",
+    "max_listings": 30,
+    "enabled": true
+  }
+} 

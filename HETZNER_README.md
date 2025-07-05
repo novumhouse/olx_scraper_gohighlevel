@@ -348,6 +348,61 @@ systemctl start olx-multi-scraper
 - ✅ **Client-tagged data** - clear attribution
 - ✅ **Structured data** - ready for GoHighLevel integration
 
+## 🔄 Deployment Workflow
+
+### **Adding New Clients (After Initial Setup)**
+
+1. **Edit client configuration locally:**
+   ```bash
+   nano olx-scraper-private/config/clients_config.json
+   # Add new client with API key, keywords, schedule
+   ```
+
+2. **Deploy to Hetzner:**
+   ```bash
+   cd olx-scraper-private
+   git add . && git commit -m "Add new client" && git push
+   ./deployment/deploy.sh
+   ```
+
+3. **Monitor new client:**
+   ```bash
+   ssh hetzner "tail -f /opt/olx-scraper/logs/multi_client_scheduler.log"
+   ```
+
+### **Updating Application Code**
+
+1. **Update public repository:**
+   ```bash
+   cd olx_scraper_gohighlevel
+   # Make changes to multi_client_scraper.py, etc.
+   git add . && git commit -m "New features" && git push
+   ```
+
+2. **Deploy to production:**
+   ```bash
+   cd olx-scraper-private
+   ./deployment/deploy.sh
+   ```
+
+### **Monitoring Commands**
+
+```bash
+# Check all clients
+ssh hetzner "cd /opt/olx-scraper && python3 multi_client_scraper.py --list"
+
+# Service status
+ssh hetzner "systemctl status olx-multi-scraper"
+
+# Live logs
+ssh hetzner "tail -f /opt/olx-scraper/logs/multi_client_scheduler.log"
+
+# Client results
+ssh hetzner "ls -la /opt/olx-scraper/results_*.json"
+```
+
+**📚 Complete Workflow Guide**: [`DEPLOYMENT_WORKFLOW.md`](DEPLOYMENT_WORKFLOW.md)
+
 ## 🚀 Production Ready
 
 Your multi-client OLX scraper is now:
@@ -357,6 +412,7 @@ Your multi-client OLX scraper is now:
 - ✅ **Cost-effective** at ~€4.60-7.14/month
 - ✅ **Scalable** for unlimited clients
 - ✅ **Client-isolated** - separate everything per client
+- ✅ **Easy deployment** with automated scripts
 
 **Your multi-client lead generation system is ready to serve multiple businesses and scale your operations!**
 

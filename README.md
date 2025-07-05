@@ -301,6 +301,64 @@ This tool is for legitimate business lead generation only. Use responsibly and i
 
 ---
 
+## 🔄 Deployment Workflow
+
+### **Adding New Clients (3 Steps)**
+
+1. **Configure locally:**
+   ```bash
+   cd olx-scraper-private
+   nano config/clients_config.json
+   # Add your new client configuration
+   ```
+
+2. **Test and commit:**
+   ```bash
+   python3 multi_client_scraper.py --client new_client --headless
+   git add . && git commit -m "Add new client" && git push
+   ```
+
+3. **Deploy to production:**
+   ```bash
+   ./deployment/deploy.sh
+   ```
+
+### **Updating Application Code**
+
+1. **Update public repository:**
+   ```bash
+   cd olx_scraper_gohighlevel
+   # Make your changes
+   git add . && git commit -m "New features" && git push
+   ```
+
+2. **Update private repository:**
+   ```bash
+   cd olx-scraper-private
+   # Pull/copy latest code
+   git add . && git commit -m "Update app code" && git push
+   ```
+
+3. **Deploy:**
+   ```bash
+   ./deployment/deploy.sh
+   ```
+
+### **Monitoring**
+
+```bash
+# Service status
+ssh hetzner "systemctl status olx-multi-scraper"
+
+# Live logs
+ssh hetzner "tail -f /opt/olx-scraper/logs/multi_client_scheduler.log"
+
+# Client results
+ssh hetzner "ls -la /opt/olx-scraper/results_*.json"
+```
+
+**📚 Complete Workflow Guide**: [`DEPLOYMENT_WORKFLOW.md`](DEPLOYMENT_WORKFLOW.md)
+
 ## 🎯 Next Steps
 
 1. **🔧 Set up dual repositories**: `./setup_private_config.sh`
