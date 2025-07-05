@@ -1,15 +1,15 @@
 #!/bin/bash
-# 🚀 Auto-deployment script for Hetzner server
-# This script deploys the latest changes to your OLX scraper on Hetzner
+# 🚀 Auto-deployment script template for OLX scraper
+# Copy this to your private repository and configure with real values
 
 set -e
 
-# Configuration
-HETZNER_IP="188.245.58.182"
-HETZNER_USER="root"
-SERVICE_NAME="olx-multi-scraper"
-DEPLOY_PATH="/opt/olx-scraper"
-SSH_ALIAS="hetzner"
+# Configuration - CUSTOMIZE THESE VALUES
+HETZNER_IP="${HETZNER_IP:-YOUR_SERVER_IP_HERE}"
+HETZNER_USER="${HETZNER_USER:-root}"
+SERVICE_NAME="${SERVICE_NAME:-olx-multi-scraper}"
+DEPLOY_PATH="${DEPLOY_PATH:-/opt/olx-scraper}"
+SSH_ALIAS="${SSH_ALIAS:-your_ssh_alias}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -30,14 +30,21 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if SSH alias exists
-if ! ssh -o ConnectTimeout=5 -o BatchMode=yes ${SSH_ALIAS} exit 2>/dev/null; then
-    log_error "Cannot connect to Hetzner server using SSH alias '${SSH_ALIAS}'"
-    log_info "Please ensure SSH is configured with: ssh ${SSH_ALIAS}"
+# Validate configuration
+if [ "$HETZNER_IP" = "YOUR_SERVER_IP_HERE" ]; then
+    log_error "Please configure HETZNER_IP with your real server IP"
+    log_info "Edit this script or set environment variable: export HETZNER_IP='your.server.ip'"
     exit 1
 fi
 
-log_info "🚀 Starting deployment to Hetzner server (${HETZNER_IP})..."
+# Check if SSH alias exists
+if ! ssh -o ConnectTimeout=5 -o BatchMode=yes ${SSH_ALIAS} exit 2>/dev/null; then
+    log_error "Cannot connect to server using SSH alias '${SSH_ALIAS}'"
+    log_info "Please ensure SSH is configured or use IP: ssh ${HETZNER_USER}@${HETZNER_IP}"
+    exit 1
+fi
+
+log_info "🚀 Starting deployment to server (${HETZNER_IP})..."
 
 # 1. Check current service status
 log_info "📊 Checking current service status..."
@@ -45,7 +52,7 @@ ssh ${SSH_ALIAS} "systemctl is-active ${SERVICE_NAME} || echo 'Service is not ru
 
 # 2. Create backup of current configuration
 log_info "💾 Creating backup of current configuration..."
-ssh ${SSH_ALIAS} "cd ${DEPLOY_PATH} && cp clients_config.json clients_config.json.backup-$(date +%Y%m%d-%H%M%S)"
+ssh ${SSH_ALIAS} "cd ${DEPLOY_PATH} && cp clients_config.json clients_config.json.backup-$(date +%Y%m%d-%H%M%S) 2>/dev/null || echo 'No config file to backup'"
 
 # 3. Pull latest changes from private repository
 log_info "📥 Pulling latest changes from private repository..."
@@ -60,7 +67,7 @@ log_info "✅ Validating client configuration..."
 ssh ${SSH_ALIAS} "cd ${DEPLOY_PATH} && source venv/bin/activate && python3 multi_client_scraper.py --list" || {
     log_error "Configuration validation failed!"
     log_warn "Restoring backup..."
-    ssh ${SSH_ALIAS} "cd ${DEPLOY_PATH} && cp clients_config.json.backup-* clients_config.json"
+    ssh ${SSH_ALIAS} "cd ${DEPLOY_PATH} && cp clients_config.json.backup-* clients_config.json 2>/dev/null || echo 'No backup to restore'"
     exit 1
 }
 
@@ -96,7 +103,7 @@ ssh ${SSH_ALIAS} "journalctl -u ${SERVICE_NAME} --no-pager -n 10"
 
 # 12. Cleanup old backups (keep last 5)
 log_info "🧹 Cleaning up old backups..."
-ssh ${SSH_ALIAS} "cd ${DEPLOY_PATH} && ls -t clients_config.json.backup-* 2>/dev/null | tail -n +6 | xargs rm -f"
+ssh ${SSH_ALIAS} "cd ${DEPLOY_PATH} && ls -t clients_config.json.backup-* 2>/dev/null | tail -n +6 | xargs rm -f || echo 'No old backups to clean'"
 
 log_info "🎉 Deployment completed successfully!"
 log_info ""
